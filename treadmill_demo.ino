@@ -3,7 +3,10 @@
 #define LOWER 4
 #define BUTTON 5
 
-int state;
+enum Direction {UP, DOWN};
+
+int buttonState;
+int direction = UP;
 
 void setup() {
   Serial.begin(9600);
@@ -13,31 +16,26 @@ void setup() {
   pinMode(LOWER, OUTPUT);
   pinMode(BUTTON, INPUT);
 
-  // digitalWrite(ENABLE, HIGH);
+  digitalWrite(ENABLE, HIGH);
 
-  // digitalWrite(RAISE, HIGH);
-  // delay(3000);
-  // digitalWrite(RAISE, LOW);
-  // delay(1000);
-  // digitalWrite(LOWER, HIGH);
-  // delay(3000);
-  // digitalWrite(LOWER, LOW);
-
-  // digitalWrite(ENABLE, LOW);
-
-  state = digitalRead(BUTTON);
+  buttonState = digitalRead(BUTTON);
 }
 
 void loop() {
   int newState1 = digitalRead(BUTTON);
-  if (newState1 == state) return; // No change
+  if (newState1 == buttonState) return; // No change
 
   delay(10);
 
   int newState2 = digitalRead(BUTTON);
   if (newState2 != newState1) return; // Just a flutter, not a proper press
 
-  state = newState2;
-  Serial.print("Button ");
-  Serial.println(state ? "on" : "off");
+  buttonState = newState2;
+
+  if (buttonState) {
+    digitalWrite(direction == UP ? RAISE : LOWER, HIGH);
+  } else {
+    digitalWrite(direction == UP ? RAISE : LOWER, LOW);
+    direction = direction == UP ? DOWN : UP;
+  }
 }
