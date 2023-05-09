@@ -7,7 +7,7 @@ interfacing directly with the motor controller board in the bottom. This version
 ## Usage
 
 Hold the Nucleo's user button down to raise the treadmill, increasing the elevation. Hold the button down a second time to lower it.
-Hold it a third time to raise it again, and so on.
+Hold it a third time to raise it again, and so on. The current elevation will be displayed on the LCD screen.
 
 ## Hardware
 
