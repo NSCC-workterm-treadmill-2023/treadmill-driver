@@ -3,7 +3,7 @@
 #define ENABLE 2
 #define RAISE 3
 #define LOWER 4
-#define BUTTON 5
+#define BUTTON PC13
 #define T3 7
 
 enum Direction {UP, DOWN};
@@ -24,6 +24,12 @@ void displayIncline(int ADCReading) {
   if (percentage < 10) lcd.print(" ");
 }
 
+// The Nucleo's onboard button goes low when pressed, so we wrap the logic
+// up here instead of repeating it everywhere.
+int readButton() {
+  return !digitalRead(BUTTON);
+}
+
 void setup() {
   Serial.begin(9600);
 
@@ -39,18 +45,18 @@ void setup() {
   digitalWrite(T3, HIGH);
   digitalWrite(ENABLE, HIGH);
 
-  buttonState = digitalRead(BUTTON);
+  buttonState = readButton();
 }
 
 void loop() {
   displayIncline(analogRead(A1));
 
-  int newState1 = digitalRead(BUTTON);
+  int newState1 = readButton();
   if (newState1 == buttonState) return; // No change
 
   delay(10);
 
-  int newState2 = digitalRead(BUTTON);
+  int newState2 = readButton();
   if (newState2 != newState1) return; // Just a flutter, not a proper press
 
   buttonState = newState2;
