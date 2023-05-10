@@ -1,10 +1,10 @@
 #include <LiquidCrystal_I2C.h>
 
-#define ENABLE 2
+#define ENABLE_ELEV_CHANGE 2
 #define RAISE 3
 #define LOWER 4
 #define BUTTON PC13
-#define T3 7
+#define ENABLE_ELEV_READ 7
 
 enum Direction {UP, DOWN};
 
@@ -36,14 +36,15 @@ void setup() {
   lcd.init();
   lcd.backlight();
 
-  pinMode(ENABLE, OUTPUT);
+  pinMode(ENABLE_ELEV_CHANGE, OUTPUT);
+  pinMode(ENABLE_ELEV_READ,   OUTPUT);
+
   pinMode(RAISE,  OUTPUT);
   pinMode(LOWER,  OUTPUT);
   pinMode(BUTTON, INPUT);
-  pinMode(T3,     OUTPUT);
 
-  digitalWrite(T3, HIGH);
-  digitalWrite(ENABLE, HIGH);
+  digitalWrite(ENABLE_ELEV_READ, HIGH);
+  digitalWrite(ENABLE_ELEV_CHANGE, HIGH);
 
   buttonState = readButton();
 }
