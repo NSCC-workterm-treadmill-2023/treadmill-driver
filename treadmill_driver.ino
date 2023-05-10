@@ -4,6 +4,9 @@
 
 #define MQTT_CLIENT_NAME "treadmill_controller"
 #define MQTT_INTERVAL 100
+// A unique ID to use in our MQTT topics, in case we want to connect multiple
+// treamills to the same broker.
+#define TREADMILL_ID "T9800-1"
 
 #define ENABLE_ELEV_CHANGE 2
 #define RAISE 3
@@ -40,14 +43,30 @@ void connectToMQTT() {
   //mqtt.subscribe(topic);
 }
 
-void displayIncline(int ADCReading) {
-  // The user manual says that incline is between 0% and 15%
-  long percentage = map(ADCReading, 156, 796, 0, 15);
+void publish(const char *topicSuffix, const char *message) {
+  String topic = String("/");
+  topic.concat(TREADMILL_ID);
+  topic.concat(topicSuffix);
 
+  mqtt.publish(topic, message);
+}
+
+void publish(const char *topicSuffix, long message) {
+  publish(topicSuffix, String(message).c_str());
+}
+
+long inclineAsPercentage(int ADCReading) {
+  // The user manual says that incline is between 0% and 15%
+  return map(ADCReading, 156, 796, 0, 15);
+}
+
+void displayIncline(long percentage) {
   lcd.setCursor(0, 0);
   lcd.print(percentage);
   lcd.print("%");
+
   // Make the trailing % sign of 10% disappear if we drop from 10% to 9%
+  // We don't need to worry about 100%, the max is 15%.
   if (percentage < 10) lcd.print(" ");
 }
 
@@ -80,11 +99,13 @@ void setup() {
 }
 
 void loop() {
-  displayIncline(analogRead(A1));
+  long incline = inclineAsPercentage(analogRead(A1));
+  displayIncline(incline);
 
   if (millis() - lastMqttSendTime >= MQTT_INTERVAL) {
     lastMqttSendTime = millis();
-    mqtt.publish("/test", String(millis()).c_str());
+
+    publish("/elevation", incline);
     mqtt.loop();
   }
 
