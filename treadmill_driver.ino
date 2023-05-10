@@ -1,4 +1,9 @@
 #include <LiquidCrystal_I2C.h>
+#include <Ethernet.h>
+#include <MQTTClient.h>
+
+#define MQTT_CLIENT_NAME "treadmill_controller"
+#define MQTT_INTERVAL 100
 
 #define ENABLE_ELEV_CHANGE 2
 #define RAISE 3
@@ -12,6 +17,28 @@ int buttonState;
 int direction = UP;
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+EthernetClient ethClient;
+MQTTClient mqtt = MQTTClient(256); // Param is max packet size
+byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+IPAddress localIP(192, 168, 5, 2);
+IPAddress brokerIP(192, 168, 5, 1);
+uint32_t lastMqttSendTime = 0;
+
+void connectToMQTT() {
+  mqtt.begin(brokerIP, 1883, ethClient);
+
+  while (!mqtt.connect(MQTT_CLIENT_NAME)) {
+    delay(100);
+  }
+
+  if (!mqtt.connected()) {
+    return;
+  }
+
+  //mqtt.onMessage(messageHandler);
+  //mqtt.subscribe(topic);
+}
 
 void displayIncline(int ADCReading) {
   // The user manual says that incline is between 0% and 15%
@@ -33,6 +60,9 @@ int readButton() {
 void setup() {
   Serial.begin(9600);
 
+  Ethernet.begin(mac, localIP);
+  connectToMQTT();
+
   lcd.init();
   lcd.backlight();
 
@@ -51,6 +81,12 @@ void setup() {
 
 void loop() {
   displayIncline(analogRead(A1));
+
+  if (millis() - lastMqttSendTime >= MQTT_INTERVAL) {
+    lastMqttSendTime = millis();
+    mqtt.publish("/test", String(millis()).c_str());
+    mqtt.loop();
+  }
 
   int newState1 = readButton();
   if (newState1 == buttonState) return; // No change
