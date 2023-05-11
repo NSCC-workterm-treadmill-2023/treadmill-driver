@@ -17,6 +17,8 @@
 enum Direction {UP, DOWN};
 
 int buttonState;
+int desiredIncline = 0;
+bool inclineChangeRequested = false;
 int direction = UP;
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -28,19 +30,12 @@ IPAddress localIP(192, 168, 5, 2);
 IPAddress brokerIP(192, 168, 5, 1);
 uint32_t lastMqttSendTime = 0;
 
-void connectToMQTT() {
-  mqtt.begin(brokerIP, 1883, ethClient);
+void subscribe(const char *topicSuffix) {
+  String topic = String("/");
+  topic.concat(TREADMILL_ID);
+  topic.concat(topicSuffix);
 
-  while (!mqtt.connect(MQTT_CLIENT_NAME)) {
-    delay(100);
-  }
-
-  if (!mqtt.connected()) {
-    return;
-  }
-
-  //mqtt.onMessage(messageHandler);
-  //mqtt.subscribe(topic);
+  mqtt.subscribe(topic);
 }
 
 void publish(const char *topicSuffix, const char *message) {
@@ -76,6 +71,32 @@ int readButton() {
   return !digitalRead(BUTTON);
 }
 
+void receive(String &topic, String &payload) {
+  if (topic.endsWith("/control/elevation")) {
+    long elevation = payload.toInt();
+    if (elevation < 0) elevation = 0;
+    else if (elevation > 15) elevation = 15;
+
+    desiredIncline = elevation;
+    inclineChangeRequested = true;
+  }
+}
+
+void connectToMQTT() {
+  mqtt.begin(brokerIP, 1883, ethClient);
+
+  while (!mqtt.connect(MQTT_CLIENT_NAME)) {
+    delay(100);
+  }
+
+  if (!mqtt.connected()) {
+    return;
+  }
+
+  mqtt.onMessage(receive);
+  subscribe("/control/elevation");
+}
+
 void setup() {
   Serial.begin(9600);
 
@@ -98,14 +119,31 @@ void setup() {
   buttonState = readButton();
 }
 
+void changeIncline(long currentIncline) {
+  if (!inclineChangeRequested) return;
+
+  if (desiredIncline > currentIncline) {
+    digitalWrite(RAISE, HIGH);
+  } else if (desiredIncline < currentIncline) {
+    digitalWrite(LOWER, HIGH);
+  } else {
+    digitalWrite(RAISE, LOW);
+    digitalWrite(LOWER, LOW);
+    inclineChangeRequested = false;
+  }
+}
+
 void loop() {
-  long incline = inclineAsPercentage(analogRead(A1));
-  displayIncline(incline);
+  if (!mqtt.connected()) connectToMQTT();
+
+  long currentIncline = inclineAsPercentage(analogRead(A1));
+  displayIncline(currentIncline);
+  changeIncline(currentIncline);
 
   if (millis() - lastMqttSendTime >= MQTT_INTERVAL) {
     lastMqttSendTime = millis();
 
-    publish("/elevation", incline);
+    publish("/readings/elevation", currentIncline);
     mqtt.loop();
   }
 
