@@ -59,3 +59,5 @@ it uses the SPI pins of the ICSP headers. That made wiring tough, but it was str
 
 From there, it was relatively smooth sailing. I installed [mosquitto](https://mosquitto.org/) on the touchscreen, and added some code
 to communicate with it. See git tag: v0.2-mqtt for the result.
+
+![Network schematic](schematic-v0.2.png)
