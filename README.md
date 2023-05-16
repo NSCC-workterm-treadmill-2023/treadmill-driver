@@ -34,3 +34,5 @@ under pin 2, and so on.
 1. Connect a Nucleo ground pin to the same ground rail.
 1. Connect treadmill connector pins 9, 17, 19 and 20 to ground. These are pins that we're ignoring for now.
 1. Leave the rest of them disconnected. The motor controller provides power on these, but we don't need it.
+
+![Schematic](docs/schematic.png)
