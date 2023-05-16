@@ -13,8 +13,17 @@ Hold it a third time to raise it again, and so on. The current elevation will be
 
 * STM32 Nucleo [G071RB](https://www.st.com/en/evaluation-tools/nucleo-g071rb.html), because it runs at 3.3V.
 * A [I2C 1602 LCD](http://www.handsontec.com/dataspecs/module/I2C_1602_LCD.pdf) display, for displaying the current elevation.
+* An [Arduino ethernet shield V1](https://docs.arduino.cc/retired/shields/arduino-ethernet-shield-without-poe-module).
 
 ## Setup
+
+In Arduino IDE, install:
+
+* [LiquidCrystal I2C](https://github.com/johnrickman/LiquidCrystal_I2C)
+* [Ethernet](https://www.arduino.cc/reference/en/libraries/ethernet/)
+* [MQTT](https://github.com/256dpi/arduino-mqtt)
+
+All of those are available in the library manager.
 
 The treadmill connector has a notch on top. Pin 1 is top left, pin 2 is under pin 1, pin 3 is to the right of pin 1, pin 4 is
 under pin 2, and so on.
@@ -24,15 +33,19 @@ under pin 2, and so on.
 1. Choose Nucleo-64 as your board.
 1. Under Tools > Board part number, choose G071RB.
 1. Power the 1602 display off the Nucleo's 5V pin.
-1. Connect SDA and SCL to the standard Arduino I2C pins (16 and 17, respectively).
+1. Connect 1602's SDA and SCL to the standard Arduino I2C pins (16 and 17, respectively).
 1. Connect Arduino pin 2 to treadmill connector pin 15.
 1. Connect Arduino pin 3 to treadmill connector pin 14.
 1. Connect Arduino pin 4 to treadmill connector pin 13.
 1. Connect Arduino pin 7 to treadmill connector pin 5.
 1. Connect Arduino pin A1 to treadmill connector pin 4.
+1. Connect Arduino pin 13 to ethernet shield ICSP SCK pin.
+1. Connect Arduino pin 12 to ethernet shield ICSP MISO pin.
+1. Connect Arduino pin 11 to ethernet shield ICSP MOSI pin.
+1. Connect Arduino pin 10 to ethernet shield pin 10.
 1. Connect treadmill connector pins 1, 3, 7 and 8 to a ground rail. These are the actual grounds.
 1. Connect a Nucleo ground pin to the same ground rail.
 1. Connect treadmill connector pins 9, 17, 19 and 20 to ground. These are pins that we're ignoring for now.
 1. Leave the rest of them disconnected. The motor controller provides power on these, but we don't need it.
 
-![Schematic](docs/schematic.png)
+![Schematic](docs/schematic-v0.2.png)

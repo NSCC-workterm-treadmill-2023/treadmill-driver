@@ -48,4 +48,14 @@ tag: v0.1-elevation for the result.
 
 ![Elevation wiring](cable-elevation.png)
 
-![Elevation demo schematic](schematic.png)
+![Elevation demo schematic](schematic-v0.1.png)
+
+## Putting it on the network
+
+The next job was to put the treadmill on the network, so that the web devs could start communicating with it. So I added an
+[ethernet shield](https://docs.arduino.cc/retired/shields/arduino-ethernet-shield-without-poe-module) to the mix. That turned out to be
+a bit trickier than expected. Unlike most shields, that one doesn't respond to the standard SPI pins, except for chip select. Instead,
+it uses the SPI pins of the ICSP headers. That made wiring tough, but it was straightforward enough once I saw the problem.
+
+From there, it was relatively smooth sailing. I installed [mosquitto](https://mosquitto.org/) on the touchscreen, and added some code
+to communicate with it. See git tag: v0.2-mqtt for the result.
