@@ -14,6 +14,7 @@
 #define BUTTON PC13
 #define ENABLE_ELEV_READ 7
 #define ELEV_READ A1
+#define SPEED_CHANGE 6
 
 enum Direction {UP, DOWN};
 
@@ -64,6 +65,17 @@ void displayIncline(long percentage) {
   // Make the trailing % sign of 10% disappear if we drop from 10% to 9%
   // We don't need to worry about 100%, the max is 15%.
   if (percentage < 10) lcd.print(" ");
+}
+
+/* Takes speed in km/h as input, and outputs a value for use with analogWrite()
+ *
+ * The numbers used in these calculations were decided on by measuring the
+ * belt's rotation time at various speeds with a stopwatch, and using desmos
+ * to find the line of best fit.
+ *
+ * https://help.desmos.com/hc/en-us/articles/4406972958733-Regressions */
+int speedToPWMSignal(float speed) {
+  return 7.680178 * speed + 3.19791;
 }
 
 // The Nucleo's onboard button goes low when pressed, so we wrap the logic
@@ -118,6 +130,9 @@ void setup() {
   digitalWrite(ENABLE_ELEV_CHANGE, HIGH);
 
   buttonState = readButton();
+
+  delay(3000);
+  analogWrite(SPEED_CHANGE, speedToPWMSignal(2.0));
 }
 
 void changeIncline(long currentIncline) {
