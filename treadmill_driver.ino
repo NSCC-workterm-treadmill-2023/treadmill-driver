@@ -13,6 +13,7 @@
 #define LOWER 4
 #define BUTTON PC13
 #define ENABLE_ELEV_READ 7
+#define ELEV_READ A1
 
 enum Direction {UP, DOWN};
 
@@ -136,7 +137,7 @@ void changeIncline(long currentIncline) {
 void loop() {
   if (!mqtt.connected()) connectToMQTT();
 
-  long currentIncline = inclineAsPercentage(analogRead(A1));
+  long currentIncline = inclineAsPercentage(analogRead(ELEV_READ));
   displayIncline(currentIncline);
   changeIncline(currentIncline);
 
