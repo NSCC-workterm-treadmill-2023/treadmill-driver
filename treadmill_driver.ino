@@ -57,6 +57,10 @@ void publish(const char *topicSuffix, long message) {
   publish(topicSuffix, String(message).c_str());
 }
 
+void publish(const char *topicSuffix, float message) {
+  publish(topicSuffix, String(message).c_str());
+}
+
 long inclineAsPercentage(int ADCReading) {
   // The user manual says that incline is between 0% and 15%
   return map(ADCReading, 156, 796, 0, 15);
@@ -117,6 +121,10 @@ void speedSensorInterruptHandler() {
   speedSensorChangeTimes[speedSensorIndex] = micros();
 }
 
+void setSpeed(float speed) {
+  analogWrite(SPEED_CHANGE, speedToPWMSignal(speed));
+}
+
 // The Nucleo's onboard button goes low when pressed, so we wrap the logic
 // up here instead of repeating it everywhere.
 int readButton() {
@@ -131,6 +139,12 @@ void receive(String &topic, String &payload) {
 
     desiredIncline = elevation;
     inclineChangeRequested = true;
+  } else if (topic.endsWith("/control/speed")) {
+    float speed = payload.toFloat();
+    if (speed > 24) speed = 24;
+    else if (speed < 0) speed = 0;
+
+    setSpeed(speed);
   }
 }
 
@@ -147,6 +161,7 @@ void connectToMQTT() {
 
   mqtt.onMessage(receive);
   subscribe("/control/elevation");
+  subscribe("/control/speed");
 }
 
 void setup() {
@@ -173,9 +188,6 @@ void setup() {
 
   buttonState = readButton();
   attachInterrupt(digitalPinToInterrupt(SPEED_READ), speedSensorInterruptHandler, CHANGE);
-
-  delay(3000);
-  analogWrite(SPEED_CHANGE, speedToPWMSignal(1.0));
 }
 
 void changeIncline(long currentIncline) {
@@ -212,6 +224,9 @@ void loop() {
     lastMqttSendTime = millis();
 
     publish("/readings/elevation", currentIncline);
+    publish("/readings/speed", periodToSpeed(
+      speedSensorChangeTimes[speedSensorIndex] - speedSensorChangeTimes[(speedSensorIndex - 1) % SPEED_SENSOR_BUFFER_SIZE]
+    ));
     mqtt.loop();
   }
 
