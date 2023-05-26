@@ -15,6 +15,7 @@
 #define ENABLE_ELEV_READ 7
 #define ELEV_READ A1
 #define SPEED_CHANGE 6
+#define SPEED_READ 5
 
 enum Direction {UP, DOWN};
 
@@ -22,6 +23,10 @@ int buttonState;
 int desiredIncline = 0;
 bool inclineChangeRequested = false;
 int direction = UP;
+
+#define SPEED_SENSOR_BUFFER_SIZE 10
+long speedSensorChangeTimes[] = {0, 0, 0, 0 ,0, 0, 0, 0, 0, 0};
+unsigned int speedSensorIndex = 0;
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
@@ -67,6 +72,13 @@ void displayIncline(long percentage) {
   if (percentage < 10) lcd.print(" ");
 }
 
+void displaySpeedSensorTime(float speed) {
+  lcd.setCursor(0, 1);
+  lcd.print("                 ");
+  lcd.setCursor(0, 1);
+  lcd.print(speed);
+}
+
 /* Takes speed in km/h as input, and outputs a value for use with analogWrite()
  *
  * The numbers used in these calculations were decided on by measuring the
@@ -76,6 +88,33 @@ void displayIncline(long percentage) {
  * https://help.desmos.com/hc/en-us/articles/4406972958733-Regressions */
 int speedToPWMSignal(float speed) {
   return 7.680178 * speed + 3.19791;
+}
+
+/* Takes a period in microseconds as input, and outputs the speed it represents
+ * in km/h. Technically, it's only half a period - the distance of a cog or gap
+ * in the sensor.
+ *
+ * As above, we're using desmos to find the curve of best fit - this time it's
+ * a reciprocal function, since there's a linear relationship between frequency
+ * and speed, but we're measuring period.
+ *
+ * https://help.desmos.com/hc/en-us/articles/4406972958733-Regressions */
+float periodToSpeed(long period) {
+  return 13094.3 / ((float) period + 169.358) - 0.204098;
+}
+
+/* The speed sensor is built on a rotating cog wheel with a magnetic sensor.
+ * When a cog is in front of the sensor, it goes high, and when there's a
+ * gap, it goes low (or maybe it's vice versa). By measuring the frequency
+ * or period of the changes, we can deduce the speed.
+ *
+ * The sensor triggers frequently - multiple times per loop iteration. So we
+ * add a buffer, and store the last SPEED_SENSOR_BUFFER_SIZE readings in it.
+ * Rather than keeping the buffer array sorted, we simply store the index of
+ * the most recent reading. */
+void speedSensorInterruptHandler() {
+  speedSensorIndex = (speedSensorIndex + 1) % SPEED_SENSOR_BUFFER_SIZE;
+  speedSensorChangeTimes[speedSensorIndex] = micros();
 }
 
 // The Nucleo's onboard button goes low when pressed, so we wrap the logic
@@ -126,13 +165,17 @@ void setup() {
   pinMode(LOWER,  OUTPUT);
   pinMode(BUTTON, INPUT);
 
+  pinMode(SPEED_CHANGE, OUTPUT);
+  pinMode(SPEED_READ,   INPUT);
+
   digitalWrite(ENABLE_ELEV_READ, HIGH);
   digitalWrite(ENABLE_ELEV_CHANGE, HIGH);
 
   buttonState = readButton();
+  attachInterrupt(digitalPinToInterrupt(SPEED_READ), speedSensorInterruptHandler, CHANGE);
 
   delay(3000);
-  analogWrite(SPEED_CHANGE, speedToPWMSignal(2.0));
+  analogWrite(SPEED_CHANGE, speedToPWMSignal(1.0));
 }
 
 void changeIncline(long currentIncline) {
@@ -155,6 +198,15 @@ void loop() {
   long currentIncline = inclineAsPercentage(analogRead(ELEV_READ));
   displayIncline(currentIncline);
   changeIncline(currentIncline);
+
+  // Try to keep the LCD from updating too frantically - should be easier to read.
+  if (micros() % 10 == 0) {
+    displaySpeedSensorTime(
+      periodToSpeed(
+        speedSensorChangeTimes[speedSensorIndex] - speedSensorChangeTimes[(speedSensorIndex - 1) % SPEED_SENSOR_BUFFER_SIZE]
+      )
+    );
+  }
 
   if (millis() - lastMqttSendTime >= MQTT_INTERVAL) {
     lastMqttSendTime = millis();
