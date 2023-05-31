@@ -186,6 +186,4 @@ void loop() {
     mqtt.loop();
   }
 
-  delay(10);
-
 }
