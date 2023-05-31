@@ -4,8 +4,10 @@
 1. Install [Mosquitto](https://mosquitto.org/) MQTT broker to `C:\Program Files\mosquitto` (the default location)
 1. Give it the following configuration in mosquitto.conf:
 
-    listener 1883 0.0.0.0
-    allow_anonymous true
+```
+listener 1883 0.0.0.0
+allow_anonymous true
+```
 
 The Nucleo uses 192.168.5.2.
 
