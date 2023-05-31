@@ -61,3 +61,41 @@ From there, it was relatively smooth sailing. I installed [mosquitto](https://mo
 to communicate with it. See git tag: v0.2-mqtt for the result.
 
 ![Network schematic](schematic-v0.2.png)
+
+## Moving the tread
+
+Then it was time to do the most important part: control the speed, so that the treadmill could actually be used. This proved to be quite
+problematic, because I was stymied by faulty connections. Switching back to the front panel, I couldn't get the motor to move. However,
+it worked if I unplugged all my wires and plugged the cable directly into the front panel, as it shipped from the factory. I plugged my
+wires back in and tested continuity on every part of it. Everything looked peachy, so I tried to run the treadmill, but the motor still
+wouldn't turn.
+
+Assuming that some of my wires were low quality, I cut my own wires off some spools of wire. 40 snips and 80 ends stripped later, I had
+everything hooked up with presumably good connections. And yet, that motor still refused to move. In the end, I made a ribbon cable to
+connect the built-in cable to the front panel, and added a third connector in the middle of the ribbon. The third connector gave me a
+spot to hook up the Nucleo, the logic analyzer, the oscilloscope and the multimeter. And **finally**, a whole week later, it worked!
+
+![Ribbon cable setup](ribbon-cable-photo.jpg)
+
+Now I could get some readings, and I was off to the races. This is what I saw:
+
+![Speed reading](speed-readings.png)
+
+Looking closer with the oscilloscope, I could see that the speed control was a simple PWM signal. The speed sensor was a bit trickier.
+It looks like a PWM signal, but the duty cycle was always 50%. Instead, the period decreases as the speed increases. That turned out to
+be due to the nature of the sensor itself &mdash; a cog wheel with a magnetic sensor to sense cogs and gaps.
+
+All that was left was calibration. I had initially tried measuring the period with the oscilloscope, and then comparing it to the speed
+reported by the front panel, but that gave wildly inaccurate results. After a few variations on that strategy, I gave up and just timed
+the tread with a stopwatch. Once I had some data points [desmos](https://www.desmos.com/calculator) made finding the curve of best fit
+easy.
+
+![Final schematic](schematic-v0.3.png)
+
+## Final stretch
+
+And that was just about it. I put the speed sensor and speed control on MQTT, and the web devs made the treadmill dance from their fancy
+UI on the touchscreen. Mission accomplished! Well, sort of. The project was over, and I hadn't even got started on the heart rate sensor.
+Still, I'm happy with what I achieved.
+
+A big thanks to my teacher Brian Shewan for helping me through the hard parts!
