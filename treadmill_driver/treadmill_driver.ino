@@ -2,12 +2,12 @@
 #include <Ethernet.h>
 #include <MQTTClient.h>
 
+// MQTT setup
 #define MQTT_CLIENT_NAME "treadmill_controller"
 #define MQTT_INTERVAL 100
-// A unique ID to use in our MQTT topics, in case we want to connect multiple
-// treamills to the same broker.
 #define TREADMILL_ID "T9800-1"
 
+// Pin definitions
 #define ENABLE_ELEV_CHANGE 2
 #define RAISE 3
 #define LOWER 4
@@ -15,37 +15,42 @@
 #define ELEV_READ A1
 #define SPEED_CHANGE 6
 #define SPEED_READ 5
+#define REED_SWITCH_PIN 9
 
 enum Direction {UP, DOWN};
-
 int desiredIncline = 0;
 bool inclineChangeRequested = false;
 int direction = UP;
 
 #define SPEED_SENSOR_BUFFER_SIZE 10
-long speedSensorChangeTimes[] = {0, 0, 0, 0 ,0, 0, 0, 0, 0, 0};
+long speedSensorChangeTimes[] = {0};
 unsigned int speedSensorIndex = 0;
 
 EthernetClient ethClient;
-MQTTClient mqtt = MQTTClient(256); // Param is max packet size
+MQTTClient mqtt = MQTTClient(256);
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
 IPAddress localIP(192, 168, 5, 2);
 IPAddress brokerIP(192, 168, 5, 1);
 uint32_t lastMqttSendTime = 0;
 
+volatile bool magnetConnected = true;
+bool lastMagnetState = true;
+
+void reedSwitchISR() {
+  magnetConnected = digitalRead(REED_SWITCH_PIN);
+}
+
 void subscribe(const char *topicSuffix) {
-  String topic = String("/");
+  String topic = "/";
   topic.concat(TREADMILL_ID);
   topic.concat(topicSuffix);
-
   mqtt.subscribe(topic);
 }
 
 void publish(const char *topicSuffix, const char *message) {
-  String topic = String("/");
+  String topic = "/";
   topic.concat(TREADMILL_ID);
   topic.concat(topicSuffix);
-
   mqtt.publish(topic, message);
 }
 
@@ -58,8 +63,7 @@ void publish(const char *topicSuffix, float message) {
 }
 
 long inclineAsPercentage(int ADCReading) {
-  // The user manual says that incline is between 0% and 15%
-  return map(ADCReading, 156, 796, 0, 15);
+  return map(ADCReading, 156, 796 , 0, 15);
 }
 
 /* Takes speed in km/h as input, and outputs a value for use with analogWrite()
@@ -102,36 +106,29 @@ void speedSensorInterruptHandler() {
 
 void setSpeed(float speed) {
   analogWrite(SPEED_CHANGE, speedToPWMSignal(speed));
+  Serial.println(speed);
 }
 
 void receive(String &topic, String &payload) {
   if (topic.endsWith("/control/elevation")) {
     long elevation = payload.toInt();
-    if (elevation < 0) elevation = 0;
-    else if (elevation > 15) elevation = 15;
-
     desiredIncline = elevation;
     inclineChangeRequested = true;
   } else if (topic.endsWith("/control/speed")) {
     float speed = payload.toFloat();
-    if (speed > 24) speed = 24;
-    else if (speed < 0) speed = 0;
-
+    speed = constrain(speed, 0, 24);
     setSpeed(speed);
   }
 }
 
 void connectToMQTT() {
   mqtt.begin(brokerIP, 1883, ethClient);
-
+  Serial.println("connecting to broker...");
   while (!mqtt.connect(MQTT_CLIENT_NAME)) {
     delay(100);
   }
-
-  if (!mqtt.connected()) {
-    return;
-  }
-
+  Serial.println("connected to broker.");
+  if (!mqtt.connected()) return;
   mqtt.onMessage(receive);
   subscribe("/control/elevation");
   subscribe("/control/speed");
@@ -139,30 +136,32 @@ void connectToMQTT() {
 
 void setup() {
   Serial.begin(9600);
-
   Ethernet.begin(mac, localIP);
   connectToMQTT();
 
   pinMode(ENABLE_ELEV_CHANGE, OUTPUT);
-  pinMode(ENABLE_ELEV_READ,   OUTPUT);
-
-  pinMode(RAISE,  OUTPUT);
-  pinMode(LOWER,  OUTPUT);
+  pinMode(ENABLE_ELEV_READ, OUTPUT);
+  pinMode(RAISE, OUTPUT); 
+  pinMode(LOWER, OUTPUT);
   pinMode(SPEED_CHANGE, OUTPUT);
-  pinMode(SPEED_READ,   INPUT);
+  pinMode(SPEED_READ, INPUT);
+  pinMode(REED_SWITCH_PIN, INPUT);
+
+  attachInterrupt(digitalPinToInterrupt(SPEED_READ), speedSensorInterruptHandler, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(REED_SWITCH_PIN), reedSwitchISR, CHANGE);
 
   digitalWrite(ENABLE_ELEV_READ, HIGH);
   digitalWrite(ENABLE_ELEV_CHANGE, HIGH);
-
-  attachInterrupt(digitalPinToInterrupt(SPEED_READ), speedSensorInterruptHandler, CHANGE);
+  Serial.println("System Initialized");
 }
 
 void changeIncline(long currentIncline) {
+  long high_range = currentIncline + currentIncline / 10;
+  long low_range = currentIncline - currentIncline / 10;
   if (!inclineChangeRequested) return;
-
-  if (desiredIncline > currentIncline) {
+  if (desiredIncline > high_range) {
     digitalWrite(RAISE, HIGH);
-  } else if (desiredIncline < currentIncline) {
+  } else if (desiredIncline < low_range) {
     digitalWrite(LOWER, HIGH);
   } else {
     digitalWrite(RAISE, LOW);
@@ -172,19 +171,29 @@ void changeIncline(long currentIncline) {
 }
 
 void loop() {
+  // Emergency motor control
+  if (magnetConnected != lastMagnetState) {
+    lastMagnetState = magnetConnected;
+    if (magnetConnected == LOW) {
+      analogWrite(SPEED_CHANGE, speedToPWMSignal(6)); // Resume safe speed (6 km/h default)
+      publish("/emergency", "Reed switch reconnected - safe to operate");
+    } else {
+      analogWrite(SPEED_CHANGE, 0); // Stop motor
+      publish("/emergency", "Emergency stop: Reed switch disconnected");
+    }
+  }
+
   if (!mqtt.connected()) connectToMQTT();
 
-  long currentIncline = inclineAsPercentage(analogRead(ELEV_READ));
+  long currentIncline = analogRead(ELEV_READ);
   changeIncline(currentIncline);
 
   if (millis() - lastMqttSendTime >= MQTT_INTERVAL) {
     lastMqttSendTime = millis();
-
     publish("/readings/elevation", currentIncline);
     publish("/readings/speed", periodToSpeed(
-      speedSensorChangeTimes[speedSensorIndex] - speedSensorChangeTimes[(speedSensorIndex - 1) % SPEED_SENSOR_BUFFER_SIZE]
+      speedSensorChangeTimes[speedSensorIndex] - speedSensorChangeTimes[(speedSensorIndex - 1 + SPEED_SENSOR_BUFFER_SIZE) % SPEED_SENSOR_BUFFER_SIZE]
     ));
     mqtt.loop();
   }
-
 }
