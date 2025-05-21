@@ -17,12 +17,12 @@
 #define REED_SWITCH_PIN 9
 
 enum Direction {UP, DOWN};
-int desiredIncline = 0;
-bool inclineChangeRequested = false;
+int desiredIncline = 175;
+volatile bool inclineRequested = false;
 int direction = UP;
 
 #define SPEED_SENSOR_BUFFER_SIZE 10
-long speedSensorChangeTimes[] = {0};
+long speedSensorChangeTimes[SPEED_SENSOR_BUFFER_SIZE] = {0};
 unsigned int speedSensorIndex = 0;
 
 EthernetClient ethClient;
@@ -115,7 +115,8 @@ void receive(String &topic, String &payload) {
   if (topic.endsWith("/control/elevation")) {
     long elevation = payload.toInt();
     desiredIncline = elevation;
-    inclineChangeRequested = true;
+    inclineRequested = true;
+
   } else if (topic.endsWith("/control/speed")) {
     float speed = payload.toFloat();
     speed = constrain(speed, 0, 24);
@@ -140,7 +141,7 @@ void connectToMQTT() {
 }
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   Ethernet.begin(mac, localIP);
   connectToMQTT();
 
@@ -157,23 +158,27 @@ void setup() {
 
   digitalWrite(ENABLE_ELEV_READ, HIGH);
   digitalWrite(ENABLE_ELEV_CHANGE, HIGH);
-  Serial.println("System Initialized");
+
+  publish("/control/elevation", 175L);
+//  inclineChangeRequested = true;
+//  desiredIncline = 175;
+//  changeIncline();
 }
 
-void changeIncline(long currentIncline) {
-  long high_range = currentIncline + 5;
-  long low_range = currentIncline - 5;
-  if (!inclineChangeRequested) return;
+void changeIncline() {
+  long currentIncline = analogRead(ELEV_READ);
+  long high_range = currentIncline + currentIncline / 10;
+  long low_range = currentIncline - currentIncline / 10;
+  if (inclineRequested == false) return;
+  
   if (desiredIncline > high_range) {
     digitalWrite(RAISE, HIGH);
-    digitalWrite(LOWER, LOW);
   } else if (desiredIncline < low_range) {
     digitalWrite(LOWER, HIGH);
-    digitalWrite(RAISE, LOW);
   } else {
     digitalWrite(RAISE, LOW);
     digitalWrite(LOWER, LOW);
-    inclineChangeRequested = false;
+    inclineRequested = false;
   }
 }
 
@@ -190,12 +195,11 @@ void loop() {
 
   if (!mqtt.connected()) connectToMQTT();
 
-  long currentIncline = analogRead(ELEV_READ);
-  changeIncline(currentIncline);
+  changeIncline();
 
   if (millis() - lastMqttSendTime >= MQTT_INTERVAL) {
     lastMqttSendTime = millis();
-    publish("/readings/elevation", currentIncline);
+    publish("/readings/elevation", (long int)analogRead(ELEV_READ));
     publish("/readings/speed", periodToSpeed(
       speedSensorChangeTimes[speedSensorIndex] - speedSensorChangeTimes[(speedSensorIndex - 1 + SPEED_SENSOR_BUFFER_SIZE) % SPEED_SENSOR_BUFFER_SIZE]
     ));
