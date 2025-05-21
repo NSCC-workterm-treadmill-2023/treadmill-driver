@@ -22,7 +22,7 @@ bool inclineChangeRequested = false;
 int direction = UP;
 
 #define SPEED_SENSOR_BUFFER_SIZE 10
-long speedSensorChangeTimes[] = {0};
+long speedSensorChangeTimes[SPEED_SENSOR_BUFFER_SIZE] = {0};
 unsigned int speedSensorIndex = 0;
 
 EthernetClient ethClient;
@@ -37,7 +37,6 @@ bool lastMagnetState = true;
 
 void reedSwitchISR() {
   magnetConnected = digitalRead(REED_SWITCH_PIN);
-
   analogWrite(SPEED_CHANGE, 0); // Stop motor
 
 }
@@ -150,7 +149,7 @@ void setup() {
   pinMode(LOWER, OUTPUT);
   pinMode(SPEED_CHANGE, OUTPUT);
   pinMode(SPEED_READ, INPUT);
-  pinMode(REED_SWITCH_PIN, INPUT);
+  pinMode(REED_SWITCH_PIN, INPUT_PULLUP);
 
   attachInterrupt(digitalPinToInterrupt(SPEED_READ), speedSensorInterruptHandler, CHANGE);
   attachInterrupt(digitalPinToInterrupt(REED_SWITCH_PIN), reedSwitchISR, RISING);
@@ -158,6 +157,10 @@ void setup() {
   digitalWrite(ENABLE_ELEV_READ, HIGH);
   digitalWrite(ENABLE_ELEV_CHANGE, HIGH);
   Serial.println("System Initialized");
+
+  magnetConnected = digitalRead(REED_SWITCH_PIN) == LOW;
+  lastMagnetState = magnetConnected;    
+
 }
 
 void changeIncline(long currentIncline) {
@@ -178,15 +181,22 @@ void changeIncline(long currentIncline) {
 }
 
 void loop() {
-  // Emergency motor control
-  if (magnetConnected != lastMagnetState) {
-    lastMagnetState = magnetConnected;
-    if (magnetConnected == LOW) {
+  // Emergency Message Topics Publish
+  bool currentState = digitalRead(REED_SWITCH_PIN);
+  if (currentState != lastMagnetState) {
+    if (lastMagnetState == HIGH && currentState == LOW) {
+    // connected state
+      magnetConnected = true; // Allow speed again
       publish("/emergency", "Reed switch reconnected - safe to operate");
-    } else {
-      publish("/emergency", "Emergency stop: Reed switch disconnected");
+    } else if (lastMagnetState == LOW && currentState == HIGH) {
+    // disconnected state
+      magnetConnected = false; // Allow speed again
+      publish("/emergency", "Reed switch disconnected - unsafe to operate");
     }
+    lastMagnetState = currentState;
   }
+
+  
 
   if (!mqtt.connected()) connectToMQTT();
 
