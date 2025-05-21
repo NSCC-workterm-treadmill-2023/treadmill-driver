@@ -157,19 +157,15 @@ void setup() {
 
   digitalWrite(ENABLE_ELEV_READ, HIGH);
   digitalWrite(ENABLE_ELEV_CHANGE, HIGH);
-<<<<<<< HEAD
 
   publish("/control/elevation", 175L);
 //  inclineChangeRequested = true;
 //  desiredIncline = 175;
 //  changeIncline();
-=======
   Serial.println("System Initialized");
 
   magnetConnected = digitalRead(REED_SWITCH_PIN) == LOW;
   lastMagnetState = magnetConnected;    
-
->>>>>>> 9b93bd9313e2ab4e33e413e447dca42cc1d4a47a
 }
 
 void changeIncline() {
