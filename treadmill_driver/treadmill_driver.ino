@@ -161,13 +161,15 @@ void setup() {
 }
 
 void changeIncline(long currentIncline) {
-  long high_range = currentIncline + currentIncline / 10;
-  long low_range = currentIncline - currentIncline / 10;
+  long high_range = currentIncline + 5;
+  long low_range = currentIncline - 5;
   if (!inclineChangeRequested) return;
   if (desiredIncline > high_range) {
     digitalWrite(RAISE, HIGH);
+    digitalWrite(LOWER, LOW);
   } else if (desiredIncline < low_range) {
     digitalWrite(LOWER, HIGH);
+    digitalWrite(RAISE, LOW);
   } else {
     digitalWrite(RAISE, LOW);
     digitalWrite(LOWER, LOW);
