@@ -37,7 +37,6 @@ bool lastMagnetState = true;
 
 void reedSwitchISR() {
   magnetConnected = digitalRead(REED_SWITCH_PIN);
-
   analogWrite(SPEED_CHANGE, 0); // Stop motor
 
 }
@@ -151,18 +150,26 @@ void setup() {
   pinMode(LOWER, OUTPUT);
   pinMode(SPEED_CHANGE, OUTPUT);
   pinMode(SPEED_READ, INPUT);
-  pinMode(REED_SWITCH_PIN, INPUT);
+  pinMode(REED_SWITCH_PIN, INPUT_PULLUP);
 
   attachInterrupt(digitalPinToInterrupt(SPEED_READ), speedSensorInterruptHandler, CHANGE);
   attachInterrupt(digitalPinToInterrupt(REED_SWITCH_PIN), reedSwitchISR, RISING);
 
   digitalWrite(ENABLE_ELEV_READ, HIGH);
   digitalWrite(ENABLE_ELEV_CHANGE, HIGH);
+<<<<<<< HEAD
 
   publish("/control/elevation", 175L);
 //  inclineChangeRequested = true;
 //  desiredIncline = 175;
 //  changeIncline();
+=======
+  Serial.println("System Initialized");
+
+  magnetConnected = digitalRead(REED_SWITCH_PIN) == LOW;
+  lastMagnetState = magnetConnected;    
+
+>>>>>>> 9b93bd9313e2ab4e33e413e447dca42cc1d4a47a
 }
 
 void changeIncline() {
@@ -183,15 +190,22 @@ void changeIncline() {
 }
 
 void loop() {
-  // Emergency motor control
-  if (magnetConnected != lastMagnetState) {
-    lastMagnetState = magnetConnected;
-    if (magnetConnected == LOW) {
+  // Emergency Message Topics Publish
+  bool currentState = digitalRead(REED_SWITCH_PIN);
+  if (currentState != lastMagnetState) {
+    if (lastMagnetState == HIGH && currentState == LOW) {
+    // connected state
+      magnetConnected = true; // Allow speed again
       publish("/emergency", "Reed switch reconnected - safe to operate");
-    } else {
-      publish("/emergency", "Emergency stop: Reed switch disconnected");
+    } else if (lastMagnetState == LOW && currentState == HIGH) {
+    // disconnected state
+      magnetConnected = false; // Allow speed again
+      publish("/emergency", "Reed switch disconnected - unsafe to operate");
     }
+    lastMagnetState = currentState;
   }
+
+  
 
   if (!mqtt.connected()) connectToMQTT();
 
