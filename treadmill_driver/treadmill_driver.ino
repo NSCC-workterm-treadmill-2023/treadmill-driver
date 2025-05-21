@@ -1,4 +1,3 @@
-//This is a comment to test access to the repo
 #include <Ethernet.h>
 #include <MQTTClient.h>
 
@@ -38,6 +37,9 @@ bool lastMagnetState = true;
 
 void reedSwitchISR() {
   magnetConnected = digitalRead(REED_SWITCH_PIN);
+
+  analogWrite(SPEED_CHANGE, 0); // Stop motor
+
 }
 
 void subscribe(const char *topicSuffix) {
@@ -117,7 +119,10 @@ void receive(String &topic, String &payload) {
   } else if (topic.endsWith("/control/speed")) {
     float speed = payload.toFloat();
     speed = constrain(speed, 0, 24);
-    setSpeed(speed);
+
+    if (digitalRead(REED_SWITCH_PIN) == LOW) {
+      setSpeed(speed);
+    }
   }
 }
 
@@ -148,7 +153,7 @@ void setup() {
   pinMode(REED_SWITCH_PIN, INPUT);
 
   attachInterrupt(digitalPinToInterrupt(SPEED_READ), speedSensorInterruptHandler, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(REED_SWITCH_PIN), reedSwitchISR, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(REED_SWITCH_PIN), reedSwitchISR, RISING);
 
   digitalWrite(ENABLE_ELEV_READ, HIGH);
   digitalWrite(ENABLE_ELEV_CHANGE, HIGH);
@@ -175,10 +180,8 @@ void loop() {
   if (magnetConnected != lastMagnetState) {
     lastMagnetState = magnetConnected;
     if (magnetConnected == LOW) {
-      analogWrite(SPEED_CHANGE, speedToPWMSignal(6)); // Resume safe speed (6 km/h default)
       publish("/emergency", "Reed switch reconnected - safe to operate");
     } else {
-      analogWrite(SPEED_CHANGE, 0); // Stop motor
       publish("/emergency", "Emergency stop: Reed switch disconnected");
     }
   }
