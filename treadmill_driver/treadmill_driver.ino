@@ -36,9 +36,10 @@ volatile bool magnetConnected = true;
 bool lastMagnetState = true;
 
 void reedSwitchISR() {
-  magnetConnected = digitalRead(REED_SWITCH_PIN);
-  analogWrite(SPEED_CHANGE, 0); // Stop motor
-
+  
+  bool currentState = digitalRead(REED_SWITCH_PIN);
+  magnetConnected = (currentState == LOW);
+  analogWrite(SPEED_CHANGE, 0);
 }
 
 void subscribe(const char *topicSuffix) {
@@ -153,7 +154,7 @@ void setup() {
   pinMode(REED_SWITCH_PIN, INPUT_PULLUP);
 
   attachInterrupt(digitalPinToInterrupt(SPEED_READ), speedSensorInterruptHandler, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(REED_SWITCH_PIN), reedSwitchISR, RISING);
+  attachInterrupt(digitalPinToInterrupt(REED_SWITCH_PIN), reedSwitchISR, CHANGE);
 
   digitalWrite(ENABLE_ELEV_READ, HIGH);
   digitalWrite(ENABLE_ELEV_CHANGE, HIGH);
@@ -164,8 +165,10 @@ void setup() {
 //  changeIncline();
   Serial.println("System Initialized");
 
-  magnetConnected = digitalRead(REED_SWITCH_PIN) == LOW;
-  lastMagnetState = magnetConnected;    
+  
+  bool currentPinState = digitalRead(REED_SWITCH_PIN);
+  magnetConnected = (currentPinState == LOW);
+  lastMagnetState = currentPinState;
 }
 
 void changeIncline() {
