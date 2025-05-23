@@ -16,10 +16,8 @@
 #define SPEED_READ 5
 #define REED_SWITCH_PIN 9
 
-enum Direction {UP, DOWN};
-int desiredIncline = 175;
+const unsigned short int INCLINE_ADC_ZERO = 175;
 volatile bool inclineRequested = false;
-int direction = UP;
 
 #define SPEED_SENSOR_BUFFER_SIZE 10
 long speedSensorChangeTimes[SPEED_SENSOR_BUFFER_SIZE] = {0};
@@ -35,8 +33,7 @@ uint32_t lastMqttSendTime = 0;
 volatile bool magnetConnected = true;
 bool lastMagnetState = true;
 
-void reedSwitchISR() {
-  
+void reedSwitchInterruptHandler() {
   bool currentState = digitalRead(REED_SWITCH_PIN);
   magnetConnected = (currentState == LOW);
   analogWrite(SPEED_CHANGE, 0);
@@ -154,15 +151,15 @@ void setup() {
   pinMode(REED_SWITCH_PIN, INPUT_PULLUP);
 
   attachInterrupt(digitalPinToInterrupt(SPEED_READ), speedSensorInterruptHandler, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(REED_SWITCH_PIN), reedSwitchISR, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(REED_SWITCH_PIN), reedSwitchInterruptHandler, CHANGE);
 
   digitalWrite(ENABLE_ELEV_READ, HIGH);
   digitalWrite(ENABLE_ELEV_CHANGE, HIGH);
 
-  publish("/control/elevation", 175L);
-//  inclineChangeRequested = true;
-//  desiredIncline = 175;
-//  changeIncline();
+  publish("/control/elevation", INCLINE_ADC_ZERO);  //Set elevation to 0 on startup
+  //  inclineChangeRequested = true;
+  //  desiredIncline = 175;
+  //  changeIncline();
   Serial.println("System Initialized");
 
   
