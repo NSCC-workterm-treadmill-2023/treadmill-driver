@@ -16,7 +16,7 @@
 #define SPEED_READ 5
 #define REED_SWITCH_PIN 9
 
-const unsigned short int INCLINE_ADC_ZERO = 175;
+const unsigned short int INCLINE_ADC_ZERO = 185;
 volatile bool inclineRequested = false;
 
 #define SPEED_SENSOR_BUFFER_SIZE 10
@@ -30,12 +30,12 @@ IPAddress localIP(192, 168, 5, 2);
 IPAddress brokerIP(192, 168, 5, 1);
 uint32_t lastMqttSendTime = 0;
 
-volatile bool magnetConnected = true;
+volatile bool magnetConnected = false;
 bool lastMagnetState = true;
 
 void reedSwitchInterruptHandler() {
   bool currentState = digitalRead(REED_SWITCH_PIN);
-  magnetConnected = (currentState == LOW);
+  magnetConnected = (currentState == HIGH);
   analogWrite(SPEED_CHANGE, 0);
 }
 
@@ -118,7 +118,7 @@ void receive(String &topic, String &payload) {
     float speed = payload.toFloat();
     speed = constrain(speed, 0, 24);
 
-    if (digitalRead(REED_SWITCH_PIN) == LOW) {
+    if (digitalRead(REED_SWITCH_PIN) == HIGH) {
       setSpeed(speed);
     }
   }
@@ -164,7 +164,7 @@ void setup() {
 
   
   bool currentPinState = digitalRead(REED_SWITCH_PIN);
-  magnetConnected = (currentPinState == LOW);
+  magnetConnected = (currentPinState == HIGH); 
   lastMagnetState = currentPinState;
 }
 
@@ -175,10 +175,15 @@ void changeIncline() {
   if (inclineRequested == false) return;
   
   if (desiredIncline > high_range) {
+    Serial.print("RAISING: ");
+    Serial.println(currentIncline);
     digitalWrite(RAISE, HIGH);
   } else if (desiredIncline < low_range) {
+    Serial.print("LOWERING: ");
+    Serial.println(currentIncline);
     digitalWrite(LOWER, HIGH);
   } else {
+    Serial.println("No Move");
     digitalWrite(RAISE, LOW);
     digitalWrite(LOWER, LOW);
     inclineRequested = false;
@@ -189,14 +194,16 @@ void loop() {
   // Emergency Message Topics Publish
   bool currentState = digitalRead(REED_SWITCH_PIN);
   if (currentState != lastMagnetState) {
-    if (lastMagnetState == HIGH && currentState == LOW) {
+    if (lastMagnetState == LOW && currentState == HIGH) {
     // connected state
       magnetConnected = true; // Allow speed again
       publish("/emergency", "Reed switch reconnected - safe to operate");
-    } else if (lastMagnetState == LOW && currentState == HIGH) {
+
+    } else if (lastMagnetState == HIGH && currentState == LOW) {
     // disconnected state
-      magnetConnected = false; // Allow speed again
+      magnetConnected = true; // Allow speed again
       publish("/emergency", "Reed switch disconnected - unsafe to operate");
+
     }
     lastMagnetState = currentState;
   }
