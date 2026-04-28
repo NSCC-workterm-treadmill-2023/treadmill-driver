@@ -1,5 +1,6 @@
 #include <Ethernet.h>
 #include <MQTTClient.h>
+#include <stdint.h>
 
 // MQTT setup
 #define MQTT_CLIENT_NAME "treadmill_controller"
@@ -16,17 +17,17 @@
 #define SPEED_READ 5
 #define REED_SWITCH_PIN 9
 
-const long INCLINE_ADC_ZERO = 185;
+const uint16_t INCLINE_ADC_ZERO = 185;
 volatile bool inclineRequested = false;
-long desiredIncline = 185;
+uint16_t desiredIncline = 185;
 
 #define SPEED_SENSOR_BUFFER_SIZE 10
-volatile long speedSensorChangeTimes[SPEED_SENSOR_BUFFER_SIZE] = {0};
-volatile unsigned int speedSensorIndex = 0;
+volatile uint32_t speedSensorChangeTimes[SPEED_SENSOR_BUFFER_SIZE] = {0};
+volatile uint8_t speedSensorIndex = 0;
 
 EthernetClient ethClient;
 MQTTClient mqtt = MQTTClient(256);
-byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+uint8_t mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
 IPAddress localIP(192, 168, 5, 2);
 IPAddress brokerIP(192, 168, 5, 1);
 uint32_t lastMqttSendTime = 0;
@@ -62,8 +63,8 @@ void publish(const char *topicSuffix, float message) {
   publish(topicSuffix, String(message).c_str());
 }
 
-long inclineAsPercentage(int ADCReading) {
-  return map(ADCReading, 156, 796 , 0, 15);
+int16_t inclineAsDegrees(uint16_t ADCReading) {
+  return map(ADCReading, 160, 875, 0, 15);
 }
 
 /* Takes speed in km/h as input, and outputs a value for use with analogWrite()
@@ -73,8 +74,11 @@ long inclineAsPercentage(int ADCReading) {
  * to find the line of best fit.
  *
  * https://help.desmos.com/hc/en-us/articles/4406972958733-Regressions */
-int speedToPWMSignal(float speed) {
-  return 7.680178 * speed + 3.19791;
+uint8_t speedToPWMSignal(float speed) {
+  float result = 7.680178 * speed + 3.19791;
+  if (result <= 0) return 0;
+  if (result > 255) return 255;
+  return (uint8_t)result;
 }
 
 /* Takes a period in microseconds as input, and outputs the speed it represents
@@ -86,7 +90,7 @@ int speedToPWMSignal(float speed) {
  * and speed, but we're measuring period.
  *
  * https://help.desmos.com/hc/en-us/articles/4406972958733-Regressions */
-float periodToSpeed(long period) {
+float periodToSpeed(uint32_t period) {
   return 13094.3 / ((float) period + 169.358) - 0.204098;
 }
 
@@ -111,7 +115,7 @@ void setSpeed(float speed) {
 
 void receive(String &topic, String &payload) {
   if (topic.endsWith("/control/elevation")) {
-    long elevation = payload.toInt();
+    uint16_t elevation = (uint16_t)payload.toInt();
     desiredIncline = elevation;
     inclineRequested = true;
 
@@ -170,9 +174,9 @@ void setup() {
 }
 
 void changeIncline() {
-  long currentIncline = analogRead(ELEV_READ);
-  long high_range = currentIncline + currentIncline / 10;
-  long low_range = currentIncline - currentIncline / 10;
+  uint16_t currentIncline = (uint16_t)analogRead(ELEV_READ);
+  uint16_t high_range = currentIncline + currentIncline / 10;
+  uint16_t low_range = currentIncline - currentIncline / 10;
   if (inclineRequested == false) return;
   
   if (desiredIncline > high_range) {
@@ -218,20 +222,20 @@ void loop() {
   if (millis() - lastMqttSendTime >= MQTT_INTERVAL) {
     lastMqttSendTime = millis();
 
-    publish("/readings/elevation", (long int)analogRead(ELEV_READ));
+    publish("/readings/elevation", (uint32_t)analogRead(ELEV_READ));
 
     // Disable interupts to prevent race condition while reading speed values
     noInterrupts();
-    unsigned int idx = speedSensorIndex;
-    long newest = speedSensorChangeTimes[idx];
-    long oldest = speedSensorChangeTimes[(idx + 1) % SPEED_SENSOR_BUFFER_SIZE];
+    uint8_t idx = speedSensorIndex;
+    uint32_t newest = speedSensorChangeTimes[idx];
+    uint32_t oldest = speedSensorChangeTimes[(idx + 1) % SPEED_SENSOR_BUFFER_SIZE];
     interrupts();
     
     // prevent erroneous startup values where the buffer is 0s
     if(oldest == 0) {
       publish("/readings/speed", 0.0f);
     } else {
-      long averagePeriod = (newest - oldest) / (SPEED_SENSOR_BUFFER_SIZE - 1);
+      uint32_t averagePeriod = (newest - oldest) / (SPEED_SENSOR_BUFFER_SIZE - 1);
       publish("/readings/speed", periodToSpeed(averagePeriod));
     }
 
