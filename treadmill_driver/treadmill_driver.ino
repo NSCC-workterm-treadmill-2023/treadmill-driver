@@ -22,6 +22,7 @@ volatile bool inclineRequested = false;
 uint16_t desiredIncline = 185;
 
 #define SPEED_SENSOR_BUFFER_SIZE 10
+#define INCLINE_TOLERANCE_ADC 10
 volatile uint32_t speedSensorChangeTimes[SPEED_SENSOR_BUFFER_SIZE] = {0};
 volatile uint8_t speedSensorIndex = 0;
 
@@ -175,8 +176,8 @@ void setup() {
 
 void changeIncline() {
   uint16_t currentIncline = (uint16_t)analogRead(ELEV_READ);
-  uint16_t high_range = currentIncline + currentIncline / 10;
-  uint16_t low_range = currentIncline - currentIncline / 10;
+  uint16_t high_range = (currentIncline <= 1023 - INCLINE_TOLERANCE_ADC) ? currentIncline + INCLINE_TOLERANCE_ADC : 1023;
+  uint16_t low_range = (currentIncline >= INCLINE_TOLERANCE_ADC) ? currentIncline - INCLINE_TOLERANCE_ADC : 0;
   if (inclineRequested == false) return;
   
   if (desiredIncline > high_range) {
