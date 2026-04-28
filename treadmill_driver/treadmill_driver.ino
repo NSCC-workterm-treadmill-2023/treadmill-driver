@@ -21,8 +21,8 @@ volatile bool inclineRequested = false;
 long desiredIncline = 185;
 
 #define SPEED_SENSOR_BUFFER_SIZE 10
-long speedSensorChangeTimes[SPEED_SENSOR_BUFFER_SIZE] = {0};
-unsigned int speedSensorIndex = 0;
+volatile long speedSensorChangeTimes[SPEED_SENSOR_BUFFER_SIZE] = {0};
+volatile unsigned int speedSensorIndex = 0;
 
 EthernetClient ethClient;
 MQTTClient mqtt = MQTTClient(256);
