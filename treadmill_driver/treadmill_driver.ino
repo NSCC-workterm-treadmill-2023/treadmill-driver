@@ -183,10 +183,12 @@ void changeIncline() {
   if (desiredIncline > high_range) {
     Serial.print("RAISING: ");
     Serial.println(currentIncline);
+    digitalWrite(LOWER, LOW);
     digitalWrite(RAISE, HIGH);
   } else if (desiredIncline < low_range) {
     Serial.print("LOWERING: ");
     Serial.println(currentIncline);
+    digitalWrite(RAISE, LOW);
     digitalWrite(LOWER, HIGH);
   } else {
     Serial.println("No Move");
