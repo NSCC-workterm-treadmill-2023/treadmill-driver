@@ -175,11 +175,12 @@ void setup() {
 }
 
 void changeIncline() {
+  if (inclineRequested == false) return;
+
   uint16_t currentIncline = (uint16_t)analogRead(ELEV_READ);
   uint16_t high_range = (currentIncline <= 1023 - INCLINE_TOLERANCE_ADC) ? currentIncline + INCLINE_TOLERANCE_ADC : 1023;
   uint16_t low_range = (currentIncline >= INCLINE_TOLERANCE_ADC) ? currentIncline - INCLINE_TOLERANCE_ADC : 0;
-  if (inclineRequested == false) return;
-  
+
   if (desiredIncline > high_range) {
     Serial.print("RAISING: ");
     Serial.println(currentIncline);
