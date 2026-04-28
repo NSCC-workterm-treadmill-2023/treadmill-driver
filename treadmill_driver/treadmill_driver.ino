@@ -146,7 +146,6 @@ void connectToMQTT() {
 void setup() {
   Serial.begin(115200);
   Ethernet.begin(mac, localIP);
-  connectToMQTT();
 
   pinMode(ENABLE_ELEV_CHANGE, OUTPUT);
   pinMode(ENABLE_ELEV_READ, OUTPUT);
@@ -158,6 +157,8 @@ void setup() {
 
   attachInterrupt(digitalPinToInterrupt(SPEED_READ), speedSensorInterruptHandler, CHANGE);
   attachInterrupt(digitalPinToInterrupt(REED_SWITCH_PIN), reedSwitchInterruptHandler, CHANGE);
+
+  connectToMQTT();
 
   digitalWrite(ENABLE_ELEV_READ, HIGH);
   digitalWrite(ENABLE_ELEV_CHANGE, HIGH);
