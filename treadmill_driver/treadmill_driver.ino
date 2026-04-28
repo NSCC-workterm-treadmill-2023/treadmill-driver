@@ -163,7 +163,7 @@ void setup() {
   digitalWrite(ENABLE_ELEV_READ, HIGH);
   digitalWrite(ENABLE_ELEV_CHANGE, HIGH);
 
-  publish("/control/elevation", INCLINE_ADC_ZERO);  //Set elevation to 0 on startup
+  publish("/control/elevation", (long)INCLINE_ADC_ZERO);  //Set elevation to 0 on startup
 
   Serial.println("System Initialized");
 
@@ -225,7 +225,7 @@ void loop() {
   if (millis() - lastMqttSendTime >= MQTT_INTERVAL) {
     lastMqttSendTime = millis();
 
-    publish("/readings/elevation", analogRead(ELEV_READ));
+    publish("/readings/elevation", (long)analogRead(ELEV_READ));
 
     // Disable interupts to prevent race condition while reading speed values
     noInterrupts();
