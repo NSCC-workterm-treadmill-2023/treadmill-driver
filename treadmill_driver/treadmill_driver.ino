@@ -219,6 +219,7 @@ void loop() {
 
   if (!mqtt.connected()) connectToMQTT();
 
+  mqtt.loop();
   changeIncline();
 
   if (millis() - lastMqttSendTime >= MQTT_INTERVAL) {
@@ -240,7 +241,5 @@ void loop() {
       uint32_t averagePeriod = (newest - oldest) / (SPEED_SENSOR_BUFFER_SIZE - 1);
       publish("/readings/speed", periodToSpeed(averagePeriod));
     }
-
-    mqtt.loop();
   }
 }
