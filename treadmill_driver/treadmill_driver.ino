@@ -226,7 +226,7 @@ void loop() {
   if (millis() - lastMqttSendTime >= MQTT_INTERVAL) {
     lastMqttSendTime = millis();
 
-    publish("/readings/elevation", (uint32_t)analogRead(ELEV_READ));
+    publish("/readings/elevation", analogRead(ELEV_READ));
 
     // Disable interupts to prevent race condition while reading speed values
     noInterrupts();
