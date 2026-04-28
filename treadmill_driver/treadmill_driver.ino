@@ -164,12 +164,9 @@ void setup() {
   digitalWrite(ENABLE_ELEV_CHANGE, HIGH);
 
   publish("/control/elevation", INCLINE_ADC_ZERO);  //Set elevation to 0 on startup
-  //  inclineChangeRequested = true;
-  //  desiredIncline = 175;
-  //  changeIncline();
+
   Serial.println("System Initialized");
 
-  
   bool currentPinState = digitalRead(REED_SWITCH_PIN);
   magnetConnected = (currentPinState == HIGH); 
   lastMagnetState = currentPinState;
