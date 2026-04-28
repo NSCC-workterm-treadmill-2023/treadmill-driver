@@ -217,10 +217,24 @@ void loop() {
 
   if (millis() - lastMqttSendTime >= MQTT_INTERVAL) {
     lastMqttSendTime = millis();
+
     publish("/readings/elevation", (long int)analogRead(ELEV_READ));
-    publish("/readings/speed", periodToSpeed(
-      speedSensorChangeTimes[speedSensorIndex] - speedSensorChangeTimes[(speedSensorIndex - 1 + SPEED_SENSOR_BUFFER_SIZE) % SPEED_SENSOR_BUFFER_SIZE]
-    ));
+
+    // Disable interupts to prevent race condition while reading speed values
+    noInterrupts();
+    unsigned int idx = speedSensorIndex;
+    long newest = speedSensorChangeTimes[idx];
+    long oldest = speedSensorChangeTimes[(idx + 1) % SPEED_SENSOR_BUFFER_SIZE];
+    interrupts();
+    
+    // prevent erroneous startup values where the buffer is 0s
+    if(oldest == 0) {
+      publish("/readings/speed", 0.0f);
+    } else {
+      long averagePeriod = (newest - oldest) / (SPEED_SENSOR_BUFFER_SIZE - 1);
+      publish("/readings/speed", periodToSpeed(averagePeriod));
+    }
+
     mqtt.loop();
   }
 }
