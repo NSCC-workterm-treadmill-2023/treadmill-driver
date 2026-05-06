@@ -26,6 +26,9 @@ uint16_t desiredIncline = 185;
 volatile uint32_t speedSensorChangeTimes[SPEED_SENSOR_BUFFER_SIZE] = {0};
 volatile uint8_t speedSensorIndex = 0;
 
+// Safety state enum
+enum SafetyStatus { SAFE, UNSAFE };
+
 EthernetClient ethClient;
 MQTTClient mqtt = MQTTClient(256);
 uint8_t mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
@@ -33,13 +36,14 @@ IPAddress localIP(192, 168, 5, 2);
 IPAddress brokerIP(192, 168, 5, 1);
 uint32_t lastMqttSendTime = 0;
 
-volatile bool magnetConnected = false;
-bool lastMagnetState = true;
+volatile SafetyStatus safetyState = SAFE;  // Default to safe state until ISR is re-enabled
+volatile bool safetyStateChanged = false;  // Flag set by ISR when switch state changes
 
 void reedSwitchInterruptHandler() {
-  bool currentState = digitalRead(REED_SWITCH_PIN);
-  magnetConnected = (currentState == HIGH);
-  analogWrite(SPEED_CHANGE, 0);
+  // TODO: Uncomment below to re-enable switch-driven safetyState control
+  // safetyState = (digitalRead(REED_SWITCH_PIN) == HIGH) ? SAFE : UNSAFE;
+  // safetyStateChanged = true;
+  // analogWrite(SPEED_CHANGE, 0);
 }
 
 void subscribe(const char *topicSuffix) {
@@ -124,7 +128,7 @@ void receive(String &topic, String &payload) {
     float speed = payload.toFloat();
     speed = constrain(speed, 0, 24);
 
-    if (digitalRead(REED_SWITCH_PIN) == HIGH) {
+    if (safetyState == SAFE) {
       setSpeed(speed);
     }
   }
@@ -167,9 +171,8 @@ void setup() {
 
   Serial.println("System Initialized");
 
-  bool currentPinState = digitalRead(REED_SWITCH_PIN);
-  magnetConnected = (currentPinState == HIGH); 
-  lastMagnetState = currentPinState;
+  // TODO: Uncomment below when reed switch hardware is ready
+  // safetyState = (digitalRead(REED_SWITCH_PIN) == HIGH) ? SAFE : UNSAFE;
 }
 
 void changeIncline() {
@@ -198,24 +201,16 @@ void changeIncline() {
 }
 
 void loop() {
+  // TODO: Uncomment below when reed switch hardware is ready
   // Emergency Message Topics Publish
-  bool currentState = digitalRead(REED_SWITCH_PIN);
-  if (currentState != lastMagnetState) {
-    if (lastMagnetState == LOW && currentState == HIGH) {
-    // connected state
-      magnetConnected = true; // Allow speed again
-      publish("/emergency", "Reed switch reconnected - safe to operate");
-
-    } else if (lastMagnetState == HIGH && currentState == LOW) {
-    // disconnected state
-      magnetConnected = true; // Allow speed again
-      publish("/emergency", "Reed switch disconnected - unsafe to operate");
-
-    }
-    lastMagnetState = currentState;
-  }
-
-  
+  // if (safetyStateChanged) {
+  //   safetyStateChanged = false;  // Clear flag so publish happens only once
+  //   if (safetyState == SAFE) {
+  //     publish("/emergency", "Reed switch reconnected - safe to operate");
+  //   } else {
+  //     publish("/emergency", "Reed switch disconnected - unsafe to operate");
+  //   }
+  // }
 
   if (!mqtt.connected()) connectToMQTT();
 
