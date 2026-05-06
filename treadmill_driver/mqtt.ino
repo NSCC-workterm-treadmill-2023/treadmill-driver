@@ -22,7 +22,7 @@ void publish(const char *topicSuffix, float message) {
 
 void receive(String &topic, String &payload) {
   if (topic.endsWith(TOPIC_CONTROL_ELEVATION)) {
-    uint16_t elevation = (uint16_t)payload.toInt();
+    uint16_t elevation = (uint16_t)constrain((int)payload.toInt(), INCLINE_ADC_MIN, INCLINE_ADC_MAX);
     desiredIncline = elevation;
     inclineRequested = true;
 

@@ -27,10 +27,12 @@
 
 const uint16_t INCLINE_ADC_ZERO = 185;
 volatile bool inclineRequested = false;
-uint16_t desiredIncline = 185;
+uint16_t desiredIncline = 210;
 
 #define SPEED_SENSOR_BUFFER_SIZE 10
-#define INCLINE_TOLERANCE_ADC 10
+#define INCLINE_TOLERANCE_ADC 15
+#define INCLINE_ADC_MIN 210
+#define INCLINE_ADC_MAX 800
 volatile uint32_t speedSensorChangeTimes[SPEED_SENSOR_BUFFER_SIZE] = {0};
 volatile uint8_t speedSensorIndex = 0;
 

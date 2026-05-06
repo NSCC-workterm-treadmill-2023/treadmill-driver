@@ -1,5 +1,5 @@
 int16_t inclineAsDegrees(uint16_t ADCReading) {
-  return map(ADCReading, 160, 875, 0, 15);
+  return map(ADCReading, INCLINE_ADC_MIN, INCLINE_ADC_MAX, 0, 15);
 }
 
 void changeIncline(uint16_t targetIncline) {
