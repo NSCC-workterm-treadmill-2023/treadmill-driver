@@ -15,7 +15,7 @@ void changeIncline(uint16_t targetIncline) {
       // Initialize stall checkpoint
       stallCheckTime = millis();
       stallCheckADC = currentIncline;
-    } else if (abs((int16_t)currentIncline - (int16_t)stallCheckADC) >= STALL_MOVEMENT_THRESHOLD) {
+    } else if (abs((int16_t)currentIncline - (int16_t)stallCheckADC) >= INCLINE_STALL_MOVEMENT_THRESHOLD) {
       // Motor is moving, reset checkpoint
       stallCheckTime = millis();
       stallCheckADC = currentIncline;
@@ -40,7 +40,7 @@ void changeIncline(uint16_t targetIncline) {
       // Initialize stall checkpoint
       stallCheckTime = millis();
       stallCheckADC = currentIncline;
-    } else if (abs((int16_t)currentIncline - (int16_t)stallCheckADC) >= STALL_MOVEMENT_THRESHOLD) {
+    } else if (abs((int16_t)currentIncline - (int16_t)stallCheckADC) >= INCLINE_STALL_MOVEMENT_THRESHOLD) {
       // Motor is moving, reset checkpoint
       stallCheckTime = millis();
       stallCheckADC = currentIncline;

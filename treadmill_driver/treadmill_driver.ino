@@ -35,7 +35,7 @@ uint16_t desiredIncline = 210;
 #define INCLINE_ADC_MAX 800
 #define INCLINE_STALL_TIMEOUT_MS 500
 #define SPEED_STALL_TIMEOUT_MS 500
-#define STALL_MOVEMENT_THRESHOLD 10
+#define INCLINE_STALL_MOVEMENT_THRESHOLD 10
 volatile uint32_t speedSensorChangeTimes[SPEED_SENSOR_BUFFER_SIZE] = {0};
 volatile uint8_t speedSensorIndex = 0;
 
