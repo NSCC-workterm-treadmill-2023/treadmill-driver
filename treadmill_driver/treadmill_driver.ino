@@ -8,6 +8,13 @@
 #define MQTT_INTERVAL 100
 #define TREADMILL_ID "T9800-1"
 
+// MQTT topics
+#define TOPIC_CONTROL_ELEVATION "/control/elevation"
+#define TOPIC_CONTROL_SPEED "/control/speed"
+#define TOPIC_READINGS_ELEVATION "/readings/elevation"
+#define TOPIC_READINGS_SPEED "/readings/speed"
+#define TOPIC_EMERGENCY "/emergency"
+
 // Pin definitions
 #define ENABLE_ELEV_CHANGE 2
 #define RAISE 3
@@ -62,7 +69,7 @@ void setup() {
   digitalWrite(ENABLE_ELEV_READ, HIGH);
   digitalWrite(ENABLE_ELEV_CHANGE, HIGH);
 
-  publish("/control/elevation", (long)INCLINE_ADC_ZERO);  //Set elevation to 0 on startup
+  publish(TOPIC_CONTROL_ELEVATION, (long)INCLINE_ADC_ZERO);  //Set elevation to 0 on startup
 
   Serial.println("System Initialized");
 
@@ -76,9 +83,9 @@ void loop() {
   // if (safetyStateChanged) {
   //   safetyStateChanged = false;  // Clear flag so publish happens only once
   //   if (safetyState == SAFE) {
-  //     publish("/emergency", "Reed switch reconnected - safe to operate");
+  //     publish(TOPIC_EMERGENCY, "Reed switch reconnected - safe to operate");
   //   } else {
-  //     publish("/emergency", "Reed switch disconnected - unsafe to operate");
+  //     publish(TOPIC_EMERGENCY, "Reed switch disconnected - unsafe to operate");
   //   }
   // }
 
@@ -90,7 +97,7 @@ void loop() {
   if (millis() - lastMqttSendTime >= MQTT_INTERVAL) {
     lastMqttSendTime = millis();
 
-    publish("/readings/elevation", (long)analogRead(ELEV_READ));
+    publish(TOPIC_READINGS_ELEVATION, (long)analogRead(ELEV_READ));
 
     // Disable interupts to prevent race condition while reading speed values
     noInterrupts();
@@ -101,10 +108,10 @@ void loop() {
     
     // prevent erroneous startup values where the buffer is 0s
     if(oldest == 0) {
-      publish("/readings/speed", 0.0f);
+      publish(TOPIC_READINGS_SPEED, 0.0f);
     } else {
       uint32_t averagePeriod = (newest - oldest) / (SPEED_SENSOR_BUFFER_SIZE - 1);
-      publish("/readings/speed", periodToSpeed(averagePeriod));
+      publish(TOPIC_READINGS_SPEED, periodToSpeed(averagePeriod));
     }
   }
 }

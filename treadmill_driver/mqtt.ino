@@ -21,12 +21,12 @@ void publish(const char *topicSuffix, float message) {
 }
 
 void receive(String &topic, String &payload) {
-  if (topic.endsWith("/control/elevation")) {
+  if (topic.endsWith(TOPIC_CONTROL_ELEVATION)) {
     uint16_t elevation = (uint16_t)payload.toInt();
     desiredIncline = elevation;
     inclineRequested = true;
 
-  } else if (topic.endsWith("/control/speed")) {
+  } else if (topic.endsWith(TOPIC_CONTROL_SPEED)) {
     float speed = payload.toFloat();
     speed = constrain(speed, 0, 24);
 
@@ -45,6 +45,6 @@ void connectToMQTT(IPAddress brokerIP, EthernetClient &ethClient) {
   Serial.println("connected to broker.");
   if (!mqtt.connected()) return;
   mqtt.onMessage(receive);
-  subscribe("/control/elevation");
-  subscribe("/control/speed");
+  subscribe(TOPIC_CONTROL_ELEVATION);
+  subscribe(TOPIC_CONTROL_SPEED);
 }
