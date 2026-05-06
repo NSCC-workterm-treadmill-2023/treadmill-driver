@@ -33,6 +33,8 @@ uint16_t desiredIncline = 210;
 #define INCLINE_TOLERANCE_ADC 15
 #define INCLINE_ADC_MIN 210
 #define INCLINE_ADC_MAX 800
+#define STALL_TIMEOUT_MS 500
+#define STALL_MOVEMENT_THRESHOLD 10
 volatile uint32_t speedSensorChangeTimes[SPEED_SENSOR_BUFFER_SIZE] = {0};
 volatile uint8_t speedSensorIndex = 0;
 
@@ -48,6 +50,9 @@ uint32_t lastMqttSendTime = 0;
 
 volatile SafetyStatus safetyState = SAFE;  // Default to safe state until ISR is re-enabled
 volatile bool safetyStateChanged = false;  // Flag set by ISR when switch state changes
+
+uint32_t stallCheckTime = 0;
+uint16_t stallCheckADC = 0;
 
 
 

@@ -25,6 +25,7 @@ void receive(String &topic, String &payload) {
     uint16_t elevation = (uint16_t)constrain((int)payload.toInt(), INCLINE_ADC_MIN, INCLINE_ADC_MAX);
     desiredIncline = elevation;
     inclineRequested = true;
+    stallCheckTime = 0;
 
   } else if (topic.endsWith(TOPIC_CONTROL_SPEED)) {
     float speed = payload.toFloat();
