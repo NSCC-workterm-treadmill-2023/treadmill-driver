@@ -33,7 +33,8 @@ uint16_t desiredIncline = 210;
 #define INCLINE_TOLERANCE_ADC 15
 #define INCLINE_ADC_MIN 210
 #define INCLINE_ADC_MAX 800
-#define STALL_TIMEOUT_MS 500
+#define INCLINE_STALL_TIMEOUT_MS 500
+#define SPEED_STALL_TIMEOUT_MS 500
 #define STALL_MOVEMENT_THRESHOLD 10
 volatile uint32_t speedSensorChangeTimes[SPEED_SENSOR_BUFFER_SIZE] = {0};
 volatile uint8_t speedSensorIndex = 0;
@@ -111,10 +112,14 @@ void loop() {
     uint8_t idx = speedSensorIndex;
     uint32_t newest = speedSensorChangeTimes[idx];
     uint32_t oldest = speedSensorChangeTimes[(idx + 1) % SPEED_SENSOR_BUFFER_SIZE];
+    uint32_t now = micros();
     interrupts();
     
     // prevent erroneous startup values where the buffer is 0s
-    if(oldest == 0) {
+    if (oldest == 0) {
+      publish(TOPIC_READINGS_SPEED, 0.0f);
+    } else if (now - newest > (uint32_t)SPEED_STALL_TIMEOUT_MS * 1000UL) {
+      // No pulse received recently - belt has stopped
       publish(TOPIC_READINGS_SPEED, 0.0f);
     } else {
       uint32_t averagePeriod = (newest - oldest) / (SPEED_SENSOR_BUFFER_SIZE - 1);

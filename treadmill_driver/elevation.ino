@@ -19,7 +19,7 @@ void changeIncline(uint16_t targetIncline) {
       // Motor is moving, reset checkpoint
       stallCheckTime = millis();
       stallCheckADC = currentIncline;
-    } else if (millis() - stallCheckTime >= STALL_TIMEOUT_MS) {
+    } else if (millis() - stallCheckTime >= INCLINE_STALL_TIMEOUT_MS) {
       // Stall detected: ADC hasn't moved enough in 500ms
       Serial.println("STALL DETECTED - RAISING");
       digitalWrite(RAISE, LOW);
@@ -44,7 +44,7 @@ void changeIncline(uint16_t targetIncline) {
       // Motor is moving, reset checkpoint
       stallCheckTime = millis();
       stallCheckADC = currentIncline;
-    } else if (millis() - stallCheckTime >= STALL_TIMEOUT_MS) {
+    } else if (millis() - stallCheckTime >= INCLINE_STALL_TIMEOUT_MS) {
       // Stall detected: ADC hasn't moved enough in 500ms
       Serial.println("STALL DETECTED - LOWERING");
       digitalWrite(RAISE, LOW);
