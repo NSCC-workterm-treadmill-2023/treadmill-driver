@@ -49,7 +49,7 @@ IPAddress localIP(192, 168, 5, 2);
 IPAddress brokerIP(192, 168, 5, 1);
 uint32_t lastMqttSendTime = 0;
 
-volatile SafetyStatus safetyState = SAFE;  // Default to safe state until ISR is re-enabled
+volatile SafetyStatus safetyState = UNSAFE;  // Default to safe state until ISR is re-enabled
 volatile bool safetyStateChanged = false;  // Flag set by ISR when switch state changes
 
 uint32_t stallCheckTime = 0;
@@ -67,12 +67,12 @@ void setup() {
   pinMode(LOWER, OUTPUT);
   pinMode(SPEED_CHANGE, OUTPUT);
   pinMode(SPEED_READ, INPUT);
-  pinMode(REED_SWITCH_PIN, INPUT_PULLUP);
+  pinMode(REED_SWITCH_PIN, INPUT);
 
   attachInterrupt(digitalPinToInterrupt(SPEED_READ), speedSensorInterruptHandler, CHANGE);
   attachInterrupt(digitalPinToInterrupt(REED_SWITCH_PIN), reedSwitchInterruptHandler, CHANGE);
 
-  connectToMQTT(brokerIP, ethClient);
+  //connectToMQTT(brokerIP, ethClient);
 
   digitalWrite(ENABLE_ELEV_READ, HIGH);
   digitalWrite(ENABLE_ELEV_CHANGE, HIGH);
@@ -82,22 +82,24 @@ void setup() {
   Serial.println("System Initialized");
 
   // TODO: Uncomment below when reed switch hardware is ready
-  // safetyState = (digitalRead(REED_SWITCH_PIN) == HIGH) ? SAFE : UNSAFE;
+  safetyState = (digitalRead(REED_SWITCH_PIN) == HIGH) ? SAFE : UNSAFE;
 }
 
 void loop() {
   // TODO: Uncomment below when reed switch hardware is ready
   // Emergency Message Topics Publish
-  // if (safetyStateChanged) {
-  //   safetyStateChanged = false;  // Clear flag so publish happens only once
-  //   if (safetyState == SAFE) {
-  //     publish(TOPIC_EMERGENCY, "Reed switch reconnected - safe to operate");
-  //   } else {
-  //     publish(TOPIC_EMERGENCY, "Reed switch disconnected - unsafe to operate");
-  //   }
-  // }
+  if (safetyStateChanged) {
+    safetyStateChanged = false;  // Clear flag so publish happens only once
+    if (safetyState == SAFE) {
+      publish(TOPIC_EMERGENCY, "Reed switch reconnected - safe to operate");
+      Serial.println("No emergency");
+    } else {
+      publish(TOPIC_EMERGENCY, "Reed switch disconnected - unsafe to operate");
+      Serial.println("Emergency");
+    }
+  }
 
-  if (!mqtt.connected()) connectToMQTT(brokerIP, ethClient);
+  //if (!mqtt.connected()) connectToMQTT(brokerIP, ethClient);
 
   mqtt.loop();
   changeIncline(desiredIncline);
