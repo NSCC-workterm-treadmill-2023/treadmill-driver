@@ -4,6 +4,7 @@
 
 // MQTT setup
 #define MQTT_CLIENT_NAME "treadmill_controller"
+#define MQTT_PORT 1883
 #define MQTT_INTERVAL 100
 #define TREADMILL_ID "T9800-1"
 
@@ -39,113 +40,7 @@ uint32_t lastMqttSendTime = 0;
 volatile SafetyStatus safetyState = SAFE;  // Default to safe state until ISR is re-enabled
 volatile bool safetyStateChanged = false;  // Flag set by ISR when switch state changes
 
-void reedSwitchInterruptHandler() {
-  // TODO: Uncomment below to re-enable switch-driven safetyState control
-  // safetyState = (digitalRead(REED_SWITCH_PIN) == HIGH) ? SAFE : UNSAFE;
-  // safetyStateChanged = true;
-  // analogWrite(SPEED_CHANGE, 0);
-}
 
-void subscribe(const char *topicSuffix) {
-  String topic = "/";
-  topic.concat(TREADMILL_ID);
-  topic.concat(topicSuffix);
-  mqtt.subscribe(topic);
-}
-
-void publish(const char *topicSuffix, const char *message) {
-  String topic = "/";
-  topic.concat(TREADMILL_ID);
-  topic.concat(topicSuffix);
-  mqtt.publish(topic, message);
-}
-
-void publish(const char *topicSuffix, long message) {
-  publish(topicSuffix, String(message).c_str());
-}
-
-void publish(const char *topicSuffix, float message) {
-  publish(topicSuffix, String(message).c_str());
-}
-
-int16_t inclineAsDegrees(uint16_t ADCReading) {
-  return map(ADCReading, 160, 875, 0, 15);
-}
-
-/* Takes speed in km/h as input, and outputs a value for use with analogWrite()
- *
- * The numbers used in these calculations were decided on by measuring the
- * belt's rotation time at various speeds with a stopwatch, and using desmos
- * to find the line of best fit.
- *
- * https://help.desmos.com/hc/en-us/articles/4406972958733-Regressions */
-uint8_t speedToPWMSignal(float speed) {
-  float result = 7.680178 * speed + 3.19791;
-  if (result <= 0) return 0;
-  if (result > 255) return 255;
-  return (uint8_t)result;
-}
-
-/* Takes a period in microseconds as input, and outputs the speed it represents
- * in km/h. Technically, it's only half a period - the distance of a cog or gap
- * in the sensor.
- *
- * As above, we're using desmos to find the curve of best fit - this time it's
- * a reciprocal function, since there's a linear relationship between frequency
- * and speed, but we're measuring period.
- *
- * https://help.desmos.com/hc/en-us/articles/4406972958733-Regressions */
-float periodToSpeed(uint32_t period) {
-  return 13094.3 / ((float) period + 169.358) - 0.204098;
-}
-
-/* The speed sensor is built on a rotating cog wheel with a magnetic sensor.
- * When a cog is in front of the sensor, it goes high, and when there's a
- * gap, it goes low (or maybe it's vice versa). By measuring the frequency
- * or period of the changes, we can deduce the speed.
- *
- * The sensor triggers frequently - multiple times per loop iteration. So we
- * add a buffer, and store the last SPEED_SENSOR_BUFFER_SIZE readings in it.
- * Rather than keeping the buffer array sorted, we simply store the index of
- * the most recent reading. */
-void speedSensorInterruptHandler() {
-  speedSensorIndex = (speedSensorIndex + 1) % SPEED_SENSOR_BUFFER_SIZE;
-  speedSensorChangeTimes[speedSensorIndex] = micros();
-}
-
-void setSpeed(float speed) {
-  analogWrite(SPEED_CHANGE, speedToPWMSignal(speed));
-  Serial.println(speed);
-}
-
-void receive(String &topic, String &payload) {
-  if (topic.endsWith("/control/elevation")) {
-    uint16_t elevation = (uint16_t)payload.toInt();
-    desiredIncline = elevation;
-    inclineRequested = true;
-
-  } else if (topic.endsWith("/control/speed")) {
-    float speed = payload.toFloat();
-    speed = constrain(speed, 0, 24);
-
-    if (safetyState == SAFE) {
-      setSpeed(speed);
-    }
-  }
-}
-
-void connectToMQTT() {
-  mqtt.begin(brokerIP, 1883, ethClient);
-  Serial.println("connecting to broker...");
-  while (!mqtt.connect(MQTT_CLIENT_NAME)) {
-    delay(100);
-  }
-  Serial.println("connected to broker.");
-  if (!mqtt.connected()) return;
-  mqtt.onMessage(receive);
-  subscribe("/control/elevation");
-  subscribe("/control/speed");
-}
 
 void setup() {
   Serial.begin(115200);
@@ -162,7 +57,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(SPEED_READ), speedSensorInterruptHandler, CHANGE);
   attachInterrupt(digitalPinToInterrupt(REED_SWITCH_PIN), reedSwitchInterruptHandler, CHANGE);
 
-  connectToMQTT();
+  connectToMQTT(brokerIP, ethClient);
 
   digitalWrite(ENABLE_ELEV_READ, HIGH);
   digitalWrite(ENABLE_ELEV_CHANGE, HIGH);
@@ -173,31 +68,6 @@ void setup() {
 
   // TODO: Uncomment below when reed switch hardware is ready
   // safetyState = (digitalRead(REED_SWITCH_PIN) == HIGH) ? SAFE : UNSAFE;
-}
-
-void changeIncline() {
-  if (inclineRequested == false) return;
-
-  uint16_t currentIncline = (uint16_t)analogRead(ELEV_READ);
-  uint16_t high_range = (currentIncline <= 1023 - INCLINE_TOLERANCE_ADC) ? currentIncline + INCLINE_TOLERANCE_ADC : 1023;
-  uint16_t low_range = (currentIncline >= INCLINE_TOLERANCE_ADC) ? currentIncline - INCLINE_TOLERANCE_ADC : 0;
-
-  if (desiredIncline > high_range) {
-    Serial.print("RAISING: ");
-    Serial.println(currentIncline);
-    digitalWrite(LOWER, LOW);
-    digitalWrite(RAISE, HIGH);
-  } else if (desiredIncline < low_range) {
-    Serial.print("LOWERING: ");
-    Serial.println(currentIncline);
-    digitalWrite(RAISE, LOW);
-    digitalWrite(LOWER, HIGH);
-  } else {
-    Serial.println("No Move");
-    digitalWrite(RAISE, LOW);
-    digitalWrite(LOWER, LOW);
-    inclineRequested = false;
-  }
 }
 
 void loop() {
@@ -212,7 +82,7 @@ void loop() {
   //   }
   // }
 
-  if (!mqtt.connected()) connectToMQTT();
+  if (!mqtt.connected()) connectToMQTT(brokerIP, ethClient);
 
   mqtt.loop();
   changeIncline();
