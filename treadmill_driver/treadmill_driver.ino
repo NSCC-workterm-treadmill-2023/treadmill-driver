@@ -92,7 +92,7 @@ void loop() {
   if (!mqtt.connected()) connectToMQTT(brokerIP, ethClient);
 
   mqtt.loop();
-  changeIncline();
+  changeIncline(desiredIncline);
 
   if (millis() - lastMqttSendTime >= MQTT_INTERVAL) {
     lastMqttSendTime = millis();
