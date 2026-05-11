@@ -29,7 +29,7 @@ void receive(String &topic, String &payload) {
 
   } else if (topic.endsWith(TOPIC_CONTROL_SPEED)) {
     float speed = payload.toFloat();
-    speed = constrain(speed, 0, 24);
+    speed = constrain(speed, SPEED_MIN, SPEED_MAX);
 
     if (safetyState == SAFE) {
       setSpeed(speed);
