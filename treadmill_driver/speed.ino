@@ -22,7 +22,8 @@ uint8_t speedToPWMSignal(float speed) {
  *
  * https://help.desmos.com/hc/en-us/articles/4406972958733-Regressions */
 float periodToSpeed(uint32_t period) {
-  return 13094.3 / ((float) period + 169.358) - 0.204098;
+  float speed = 13094.3 / ((float) period + 169.358) - 0.204098;
+  return speed < 0 ? 0.0f : speed;
 }
 
 /* The speed sensor is built on a rotating cog wheel with a magnetic sensor.
