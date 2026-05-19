@@ -5,6 +5,7 @@
 // MQTT setup
 #define MQTT_CLIENT_NAME "treadmill_controller"
 #define MQTT_PORT 1883
+#define MQTT_INTERVAL 100
 #define TREADMILL_ID "T9800-1"
 
 // MQTT topics
@@ -37,8 +38,6 @@ uint16_t desiredIncline = 210;
 #define INCLINE_STALL_TIMEOUT_MS 500
 #define SPEED_STALL_TIMEOUT_MS 500
 #define INCLINE_STALL_MOVEMENT_THRESHOLD 10
-#define ELEVATION_PUBLISH_THRESHOLD 10
-#define SPEED_PUBLISH_THRESHOLD 0.1
 volatile uint32_t speedSensorChangeTimes[SPEED_SENSOR_BUFFER_SIZE] = {0};
 volatile uint8_t speedSensorIndex = 0;
 
@@ -50,9 +49,7 @@ MQTTClient mqtt = MQTTClient(256);
 uint8_t mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
 IPAddress localIP(192, 168, 5, 2);
 IPAddress brokerIP(192, 168, 5, 1);
-
-uint16_t lastPublishedElevation = 0;
-float lastPublishedSpeed = -1.0f;
+uint32_t lastMqttSendTime = 0;
 
 volatile SafetyStatus safetyState = SAFE;  // Default to safe state until ISR is re-enabled
 volatile bool safetyStateChanged = false;  // Flag set by ISR when switch state changes
@@ -107,34 +104,28 @@ void loop() {
   mqtt.loop();
   changeIncline(desiredIncline);
 
-  uint16_t currentElevation = (uint16_t)analogRead(ELEV_READ);
-  if (abs((int16_t)currentElevation - (int16_t)lastPublishedElevation) >= ELEVATION_PUBLISH_THRESHOLD) {
-    lastPublishedElevation = currentElevation;
-    publish(TOPIC_READINGS_ELEVATION, (long)currentElevation);
-  }
+  if (millis() - lastMqttSendTime >= MQTT_INTERVAL) {
+    lastMqttSendTime = millis();
 
-  // Disable interrupts to prevent race condition while reading speed values
-  noInterrupts();
-  uint8_t idx = speedSensorIndex;
-  uint32_t newest = speedSensorChangeTimes[idx];
-  uint32_t oldest = speedSensorChangeTimes[(idx + 1) % SPEED_SENSOR_BUFFER_SIZE];
-  uint32_t now = micros();
-  interrupts();
+    publish(TOPIC_READINGS_ELEVATION, (long)analogRead(ELEV_READ));
 
-  float currentSpeed;
-  // prevent erroneous startup values where the buffer is 0s
-  if (oldest == 0) {
-    currentSpeed = 0.0f;
-  } else if (now - newest > (uint32_t)SPEED_STALL_TIMEOUT_MS * 1000UL) {
-    // No pulse received recently - belt has stopped
-    currentSpeed = 0.0f;
-  } else {
-    uint32_t averagePeriod = (newest - oldest) / (SPEED_SENSOR_BUFFER_SIZE - 1);
-    currentSpeed = periodToSpeed(averagePeriod);
-  }
-
-  if (fabs(currentSpeed - lastPublishedSpeed) >= SPEED_PUBLISH_THRESHOLD) {
-    lastPublishedSpeed = currentSpeed;
-    publish(TOPIC_READINGS_SPEED, currentSpeed);
+    // Disable interupts to prevent race condition while reading speed values
+    noInterrupts();
+    uint8_t idx = speedSensorIndex;
+    uint32_t newest = speedSensorChangeTimes[idx];
+    uint32_t oldest = speedSensorChangeTimes[(idx + 1) % SPEED_SENSOR_BUFFER_SIZE];
+    uint32_t now = micros();
+    interrupts();
+    
+    // prevent erroneous startup values where the buffer is 0s
+    if (oldest == 0) {
+      publish(TOPIC_READINGS_SPEED, 0.0f);
+    } else if (now - newest > (uint32_t)SPEED_STALL_TIMEOUT_MS * 1000UL) {
+      // No pulse received recently - belt has stopped
+      publish(TOPIC_READINGS_SPEED, 0.0f);
+    } else {
+      uint32_t averagePeriod = (newest - oldest) / (SPEED_SENSOR_BUFFER_SIZE - 1);
+      publish(TOPIC_READINGS_SPEED, periodToSpeed(averagePeriod));
+    }
   }
 }
