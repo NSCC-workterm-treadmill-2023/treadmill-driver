@@ -30,14 +30,14 @@ volatile bool inclineRequested = false;
 uint16_t desiredIncline = 210;
 
 #define SPEED_SENSOR_BUFFER_SIZE 10
-#define INCLINE_TOLERANCE_ADC 15
+#define INCLINE_TOLERANCE_ADC 10
 #define INCLINE_ADC_MIN 210
 #define INCLINE_ADC_MAX 800
 #define SPEED_MIN 0
 #define SPEED_MAX 7
 #define INCLINE_STALL_TIMEOUT_MS 500
 #define SPEED_STALL_TIMEOUT_MS 500
-#define INCLINE_STALL_MOVEMENT_THRESHOLD 10
+#define INCLINE_STALL_MOVEMENT_THRESHOLD 5
 volatile uint32_t speedSensorChangeTimes[SPEED_SENSOR_BUFFER_SIZE] = {0};
 volatile uint8_t speedSensorIndex = 0;
 
@@ -51,8 +51,8 @@ IPAddress localIP(192, 168, 5, 2);
 IPAddress brokerIP(192, 168, 5, 1);
 uint32_t lastMqttSendTime = 0;
 
-volatile SafetyStatus safetyState = SAFE;  // Default to safe state until ISR is re-enabled
-volatile bool safetyStateChanged = false;  // Flag set by ISR when switch state changes
+volatile SafetyStatus safetyState = SAFE;
+volatile bool safetyStateChanged = false;
 
 uint32_t stallCheckTime = 0;
 uint16_t stallCheckADC = 0;
@@ -83,21 +83,18 @@ void setup() {
 
   Serial.println("System Initialized");
 
-  // TODO: Uncomment below when reed switch hardware is ready
-  // safetyState = (digitalRead(REED_SWITCH_PIN) == HIGH) ? SAFE : UNSAFE;
+  safetyState = (digitalRead(REED_SWITCH_PIN) == HIGH) ? SAFE : UNSAFE;
 }
 
 void loop() {
-  // TODO: Uncomment below when reed switch hardware is ready
-  // Emergency Message Topics Publish
-  // if (safetyStateChanged) {
-  //   safetyStateChanged = false;  // Clear flag so publish happens only once
-  //   if (safetyState == SAFE) {
-  //     publish(TOPIC_EMERGENCY, "Reed switch reconnected - safe to operate");
-  //   } else {
-  //     publish(TOPIC_EMERGENCY, "Reed switch disconnected - unsafe to operate");
-  //   }
-  // }
+  if (safetyStateChanged) {
+    safetyStateChanged = false;
+    if (safetyState == SAFE) {
+      publish(TOPIC_EMERGENCY, "false");
+    } else {
+      publish(TOPIC_EMERGENCY, "true");
+    }
+  }
 
   if (!mqtt.connected()) connectToMQTT(brokerIP, ethClient);
 
